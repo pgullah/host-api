@@ -2,14 +2,20 @@
 const express = require('express')
 const localtunnel = require('localtunnel')
 const ngrok = require('ngrok')
-var dns = require('dns/promises');
 const util = require('util');
+const exec = util.promisify(require('child_process').exec);
+const lookupHost = async (host) => {
+   const cmd = `ping ${host} -c 1 | head -1 | awk '{print $3}' | sed 's/[()]//g'`;
+   const resp = await exec(cmd);
+   // console.log(">> resp:", resp);
+   return resp.stdout;
+}
 
 const TUNNEL_CFG = {
   ssh: { port: 22, },
   home: { port: 80 },
 }
-const NGROK_URL_REGEX = /^tcp:\/\/([^:]+)(\d+)/;
+const NGROK_URL_REGEX = /^tcp:\/\/([^:]+):(\d+)/;
 const findTunnelConfig = (tunnelType) => TUNNEL_CFG[tunnelType];
 const findTunnel = (tunnelType) => {
   const cfg = findTunnelConfig(tunnelType);
@@ -30,10 +36,12 @@ app.put('/:tunnelType', async (req, res) => {
   if (tunnel == null || tunnel == undefined) {
     if (tunnelType == 'ssh') {
       const ngrokUrl = await ngrok.connect({ proto: 'tcp', addr: cfg.port });
-      const matches = NGROK_URL_REGEX.match(ngrokUrl);
-      const host = matches[0];
-      const port = matches[1];
-      const address = (await dns.lookup(host)).address;
+      console.log('ngrok url:', ngrokUrl);
+      const matches = ngrokUrl.match(NGROK_URL_REGEX);
+      console.log(">> matches:", matches)
+      const host = matches[1];
+      const port = matches[2];
+      const address = await lookupHost(host);
       tunnel = {
         url: ngrokUrl,
         remote_host: host,
@@ -65,7 +73,7 @@ app.get('/:tunnelType', (req, res) => {
 app.delete('/:tunnelType', async (req, res) => {
   const tunnelType = req.params.tunnelType;
   const tunnel = findTunnel(tunnelType);
-  console.log(' deleteing tunnel:', tunnel)
+  console.log(' deleteing tunnel:', tunnelType)
   if (tunnel == null || tunnel == undefined) {
     res.sendStatus(404, 'No tunnel exists!')
   } else {

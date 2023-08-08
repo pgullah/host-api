@@ -36,6 +36,7 @@ router.get('/:tunnelType', (req, res) => {
 });
 
 router.put('/:tunnelType', async (req, res) => {
+	console.log(" tunnel tyoe....");
     const tunnelType = req.params.tunnelType;
     if (!(tunnelType in TUNNEL_CFG)) {
         res.sendStatus(400, `${tunnelType} is not recognized type`);

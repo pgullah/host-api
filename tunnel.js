@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const localtunnel = require('localtunnel');
 const ngrok = require('ngrok');
+const shell = require('./common/shell');
 
 const lookupHost = async (host) => {
     const resp = await shell(`ping ${host} -c 1 | head -1 | awk '{print $3}' | sed 's/[()]//g'`);

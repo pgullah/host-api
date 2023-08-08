@@ -1,90 +1,49 @@
 #! /usr/bin/node
-const express = require('express')
-const localtunnel = require('localtunnel')
-const ngrok = require('ngrok')
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
-const lookupHost = async (host) => {
-   const cmd = `ping ${host} -c 1 | head -1 | awk '{print $3}' | sed 's/[()]//g'`;
-   const resp = await exec(cmd);
-   // console.log(">> resp:", resp);
-   return resp.stdout;
-}
+const express = require('express');
+const session = require("express-session");
+require('dotenv').config();
 
-const TUNNEL_CFG = {
-  ssh: { port: 22, },
-  home: { port: 80 },
-}
-const NGROK_URL_REGEX = /^tcp:\/\/([^:]+):(\d+)/;
-const findTunnelConfig = (tunnelType) => TUNNEL_CFG[tunnelType];
-const findTunnel = (tunnelType) => {
-  const cfg = findTunnelConfig(tunnelType);
-  return cfg && cfg['tunnel'];
-}
-const sendTunnelResp = (tunnel, res) => res.send(JSON.stringify({ url: tunnel.url, remote_host: tunnel.remote_host, remote_port: tunnel.remote_port, remote_address: tunnel.remote_address}));
+const USER_ID = process.env['USER_ID'];
+const PASSWORD = process.env['PASSWORD'];
 
+const sess = {
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { 
+    secure: false,
+    maxAge: 10000,
+    // rolling: true,
+    unset: 'destroy',
+   },
+  name: 'exprs-ts-arch-id',
+};
+
+const auth = require("./auth");
 const app = express();
-app.put('/:tunnelType', async (req, res) => {
-  const tunnelType = req.params.tunnelType;
-  if (!(tunnelType in TUNNEL_CFG)) {
-    res.sendStatus(400, `${tunnelType} is not recognized type`);
-    return;
-  }
+app.use(express.json());
+app.use(session(sess));
+const tunnel = require('./tunnel');
+app.use('/tunnel', auth.verify, tunnel);
 
-  const cfg = TUNNEL_CFG[tunnelType];
-  let tunnel = findTunnel(tunnelType);
-  if (tunnel == null || tunnel == undefined) {
-    if (tunnelType == 'ssh') {
-      const ngrokUrl = await ngrok.connect({ proto: 'tcp', addr: cfg.port });
-      console.log('ngrok url:', ngrokUrl);
-      const matches = ngrokUrl.match(NGROK_URL_REGEX);
-      console.log(">> matches:", matches)
-      const host = matches[1];
-      const port = matches[2];
-      const address = await lookupHost(host);
-      tunnel = {
-        url: ngrokUrl,
-        remote_host: host,
-        remote_port: port,
-        remote_address: address,
-        type: 'ngrok',
-        close: ngrok.disconnect,
-      }
-    } else {
-      // only supports http
-      tunnel = await localtunnel({ port: cfg.port });
-      tunnel.type = 'localtunnel';
-    }
-    cfg['tunnel'] = tunnel;
-  }
-  sendTunnelResp(tunnel, res)
-});
-
-app.get('/:tunnelType', (req, res) => {
-  const tunnelType = req.params.tunnelType;
-  const tunnel = findTunnel(tunnelType);
-  if (tunnel == null || tunnel == undefined) {
-    res.sendStatus(404, `No tunnel exists!`)
+app.post("/login", (req, res) => {
+  const { username, password } = req.body || {}
+  if (username == USER_ID && password == PASSWORD) {
+    req.session.regenerate(() => {
+      // Store the user's primary key
+      // in the session store to be retrieved,
+      // or in this case the entire user object
+      req.session.user = username;
+      res.send({
+        ok: true,
+        message: "Login successful"
+      });
+    });
   } else {
-    sendTunnelResp(tunnel, res)
-  }
-});
-
-app.delete('/:tunnelType', async (req, res) => {
-  const tunnelType = req.params.tunnelType;
-  const tunnel = findTunnel(tunnelType);
-  console.log(' deleteing tunnel:', tunnelType)
-  if (tunnel == null || tunnel == undefined) {
-    res.sendStatus(404, 'No tunnel exists!')
-  } else {
-    console.log("Closing tunnel");
-    try {
-      await tunnel.close();
-      TUNNEL_CFG[tunnelType]['tunnel'] = null;
-    } catch (err) {
-      console.log('exception occurred while closing tunnel:', err);
-    }
-    res.sendStatus(200);
+    res.status(401).send({
+      ok: false,
+      message: "Invalid credentials!"
+    })
   }
 });
 

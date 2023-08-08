@@ -2,3 +2,9 @@ node_modules/
 .git/
 *.log
 .pid
+nohup.out
+
+.env*
+.flaskenv*
+!.env.project
+!.env.vault

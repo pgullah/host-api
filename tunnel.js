@@ -2,15 +2,12 @@ const express = require('express');
 const router = express.Router();
 const localtunnel = require('localtunnel');
 const ngrok = require('ngrok');
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
 
 const lookupHost = async (host) => {
-    const cmd = `ping ${host} -c 1 | head -1 | awk '{print $3}' | sed 's/[()]//g'`;
-    const resp = await exec(cmd);
+    const resp = await shell(`ping ${host} -c 1 | head -1 | awk '{print $3}' | sed 's/[()]//g'`);
     // console.log(">> resp:", resp);
     return resp.stdout;
- } 
+}
 
 const TUNNEL_CFG = {
     ssh: { port: 22, },
@@ -26,8 +23,6 @@ const findTunnel = (tunnelType) => {
 const sendTunnelResp = (tunnel, res) => res.send(JSON.stringify({
     url: tunnel.url, remote_host: tunnel.remote_host, remote_port: tunnel.remote_port, remote_address: tunnel.remote_address
 }));
-
-// router.use(require("./auth"));
 
 router.get('/:tunnelType', (req, res) => {
     const tunnelType = req.params.tunnelType;

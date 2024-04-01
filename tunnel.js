@@ -3,7 +3,7 @@ const router = express.Router();
 const localtunnel = require('localtunnel');
 const ngrok = require('ngrok');
 const shell = require('./common/shell');
-
+// const ngrok = require("@ngrok/ngrok");
 const lookupHost = async (host) => {
     const resp = await shell(`ping ${host} -c 1 | head -1 | awk '{print $3}' | sed 's/[()]//g'`);
     // console.log(">> resp:", resp);
@@ -47,7 +47,8 @@ router.put('/:tunnelType', async (req, res) => {
     let tunnel = findTunnel(tunnelType);
     if (tunnel == null || tunnel == undefined) {
         if (tunnelType == 'ssh') {
-            const ngrokUrl = await ngrok.connect({ proto: 'tcp', addr: cfg.port, });
+            const ngrokUrl = await ngrok.connect({ proto: 'tcp', addr: cfg.port,});
+            // const ngrokUrl = (await ngrok.forward({ proto: 'tcp', addr: cfg.port, })).url();
             console.log('ngrok url:', ngrokUrl);
             const matches = ngrokUrl.match(NGROK_URL_REGEX);
             console.log(">> matches:", matches)

@@ -19,11 +19,11 @@ const sess = {
   name: 'exprs-ts-arch-id',
 };
 
-const auth = require("./auth");
+const auth = require("./app/auth");
 const app = express();
 app.use(express.json());
 app.use(session(sess));
-const tunnel = require('./tunnel');
+const tunnel = require('./app/tunnel');
 app.use('/tunnel', auth.verify, tunnel);
 
 app.post("/login", (req, res) => {

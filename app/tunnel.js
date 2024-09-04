@@ -3,7 +3,8 @@ const router = express.Router();
 const localtunnel = require('localtunnel');
 const ngrok = require('ngrok');
 const shell = require('./common/shell');
-// const ngrok = require("@ngrok/ngrok");
+// local tunnel hosts are sometime not accessible outside to public
+// so, getting a real ip
 const lookupHost = async (host) => {
     const resp = await shell(`ping ${host} -c 1 | head -1 | awk '{print $3}' | sed 's/[()]//g'`);
     // console.log(">> resp:", resp);
